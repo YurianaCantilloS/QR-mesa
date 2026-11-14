@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Encuentra tu mesa · Marolin &amp; Jaime</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600;1,700&family=Alex+Brush&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<!-- Usa el mismo config.js de la invitación -->
+<script src="config.js" onerror="void 0"></script>
+
+<style>
+  :root{
+    --rose:#d98c97;
+    --rose-deep:#b98c5a;
+    --ivory:#f6f1ea;
+    --gold:#b9a06c;
+    --gold-deep:#8f7a48;
+    --ink:#4a3f36;
+    --ink-soft:#7a7065;
+    --shadow:0 20px 60px rgba(74,63,54,.16);
+    --shadow-soft:0 12px 34px rgba(74,63,54,.1);
+  }
+
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+  html,body{ margin:0; min-height:100%; }
+
+  body{
+    color:var(--ink);
+    font-family:'Jost',sans-serif;
+    font-weight:300;
+    overflow-x:hidden;
+    background:
+      radial-gradient(circle at 20% 10%, rgba(255,255,255,.85), transparent 22%),
+      radial-gradient(circle at 85% 20%, rgba(255,220,225,.35), transparent 18%),
+      linear-gradient(180deg, #fffaf5 0%, #f9eee2 100%);
+    background-attachment:fixed;
+  }
+
+  button,input{ font-family:inherit; }
+  :focus-visible{ outline:2px solid var(--gold-deep); outline-offset:2px; }
+  .hidden{ display:none !important; }
+
+  /* pétalos de fondo, igual que la invitación */
+  .petal-layer{ position:fixed; inset:0; pointer-events:none; z-index:0; overflow:hidden; }
+  .petal{
+    position:absolute; top:-40px; width:16px; height:12px;
+    border-radius:14px 14px 14px 0;
+    background:linear-gradient(135deg, #ffd7dc 0%, #efb4bb 100%);
+    opacity:.6; animation:fall linear infinite;
+  }
+  .petal:nth-child(1){ left:8%;  animation-duration:13s; animation-delay:-2s; }
+  .petal:nth-child(2){ left:20%; animation-duration:16s; animation-delay:-7s; }
+  .petal:nth-child(3){ left:33%; animation-duration:14s; animation-delay:-4s; }
+  .petal:nth-child(4){ left:47%; animation-duration:18s; animation-delay:-8s; }
+  .petal:nth-child(5){ left:60%; animation-duration:15s; animation-delay:-3s; }
+  .petal:nth-child(6){ left:72%; animation-duration:17s; animation-delay:-9s; }
+  .petal:nth-child(7){ left:84%; animation-duration:13s; animation-delay:-5s; }
+  .petal:nth-child(8){ left:93%; animation-duration:19s; animation-delay:-10s; }
+  @keyframes fall{
+    0%{ transform:translate3d(0,-20px,0) rotate(0deg); opacity:0; }
+    10%{ opacity:.65; }
+    100%{ transform:translate3d(18px,110vh,0) rotate(320deg); opacity:0; }
+  }
+
+  .page{
+    position:relative; z-index:1;
+    max-width:430px; margin:0 auto;
+    padding:28px 16px 40px;
+    min-height:100vh; min-height:100dvh;
+    display:flex; flex-direction:column; justify-content:center;
+  }
+
+  .card{
+    position:relative;
+    background:
+      radial-gradient(circle at 18% 12%, rgba(255,255,255,.82), transparent 24%),
+      radial-gradient(circle at 82% 88%, rgba(255,225,230,.25), transparent 22%),
+      linear-gradient(180deg, rgba(255,255,255,.94) 0%, rgba(252,244,235,.98) 100%);
+    border:1px solid rgba(234,220,200,.95);
+    border-radius:28px;
+    box-shadow:var(--shadow);
+    padding:44px 24px 40px;
+    text-align:center;
+    overflow:hidden;
+    min-height:min(720px, calc(100vh - 56px));
+    min-height:min(720px, calc(100dvh - 56px));
+    display:flex; flex-direction:column; justify-content:center;
+  }
+
+  .card::before{
+    content:""; position:absolute; inset:8px;
+    border:1px solid rgba(199,161,93,.3);
+    border-radius:21px; pointer-events:none;
+  }
+
+  .logo{
+    display:block; width:190px; height:auto;
+    margin:0 auto 6px;
+    filter:drop-shadow(0 6px 10px rgba(143,122,72,.25));
+  }
+
+  .kicker{
+    margin:6px 0 0;
+    font-family:'Cormorant Garamond',serif;
+    text-transform:uppercase; letter-spacing:.12em;
+    font-size:15px; font-weight:600; color:var(--gold-deep);
+  }
+
+  .heart{ color:var(--rose-deep); font-size:15px; margin:12px 0 26px; }
+
+  .lead{
+    margin:0 auto 30px; max-width:280px;
+    color:var(--ink-soft); line-height:1.75; font-size:15px;
+  }
+
+  /* ----- buscador ----- */
+  .field{ text-align:left; }
+  .field label{
+    display:block; margin-bottom:7px;
+    font-size:11px; text-transform:uppercase; letter-spacing:.08em;
+    color:var(--gold-deep);
+  }
+  .field input{
+    width:100%;
+    border:1px solid rgba(216,196,173,.85);
+    background:rgba(255,255,255,.9);
+    border-radius:16px; padding:18px 18px;
+    font-size:17px; color:var(--ink);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.7);
+  }
+
+  .suggestions{
+    margin-top:10px;
+    border:1px solid rgba(216,196,173,.75);
+    border-radius:14px; background:rgba(255,255,255,.97);
+    box-shadow:0 10px 24px rgba(96,72,56,.08);
+    overflow:hidden; text-align:left;
+  }
+  .suggestion{
+    width:100%; display:block; border:none; background:transparent;
+    padding:13px 16px; text-align:left; cursor:pointer;
+    color:var(--ink); font-size:15px;
+    border-bottom:1px solid rgba(234,220,200,.7);
+  }
+  .suggestion:last-child{ border-bottom:none; }
+  .suggestion:hover,.suggestion:active{ background:rgba(243,217,221,.32); }
+  .suggestion small{
+    display:block; margin-top:2px;
+    font-family:'Cormorant Garamond',serif; font-style:italic;
+    font-size:16px; color:var(--rose-deep);
+  }
+  .no-results{ padding:14px 16px; font-size:13px; color:var(--ink-soft); line-height:1.6; }
+  .hint{ margin:10px 2px 0; font-size:12px; color:var(--ink-soft); text-align:left; }
+
+  /* ----- resultado animado ----- */
+  .reveal-wrap{ position:relative; }
+
+  .hello{
+    font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:600;
+    font-size:36px; line-height:1.15; color:#8f6a4e;
+    margin:0; word-break:break-word;
+    opacity:0; animation:rise .8s ease .1s forwards;
+  }
+
+  .with{
+    margin:4px 0 0;
+    font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:600;
+    font-size:22px; color:var(--rose-deep); word-break:break-word;
+    opacity:0; animation:rise .8s ease .35s forwards;
+  }
+
+  .your{
+    margin:18px 0 0;
+    text-transform:uppercase; letter-spacing:.34em;
+    font-size:11px; font-weight:500; color:var(--gold-deep);
+    opacity:0; animation:rise .8s ease .6s forwards;
+  }
+
+  @keyframes rise{
+    from{ opacity:0; transform:translateY(14px); }
+    to{ opacity:1; transform:translateY(0); }
+  }
+
+  .stage{
+    position:relative; width:250px; height:250px; margin:6px auto 0;
+  }
+
+  /* destellos */
+  .spark{
+    position:absolute; left:50%; top:50%;
+    width:7px; height:7px; border-radius:50%;
+    background:radial-gradient(circle, #fff6d6 0%, #e7c97a 60%, transparent 70%);
+    opacity:0;
+    animation:spark 1.6s ease-out var(--sd,0s) forwards;
+  }
+  @keyframes spark{
+    0%{ opacity:0; transform:translate(-50%,-50%) scale(.2); }
+    25%{ opacity:1; }
+    100%{ opacity:0; transform:translate(calc(-50% + var(--x)), calc(-50% + var(--y))) scale(1.3); }
+  }
+
+  /* la mesa */
+  .table{
+    position:absolute; inset:58px;
+    border-radius:50%;
+    background:radial-gradient(circle at 35% 28%, #ffffff 0%, #fdf6e8 55%, #f1e2c2 100%);
+    border:3px solid #fff;
+    box-shadow:
+      0 0 0 2px rgba(199,161,93,.65),
+      0 18px 34px rgba(120,90,50,.3),
+      inset 0 -8px 16px rgba(164,122,67,.14);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    color:var(--gold-deep); line-height:1;
+    opacity:0; transform:scale(.2) rotate(-120deg);
+    animation:tableIn 1s cubic-bezier(.2,1.25,.3,1) .85s forwards;
+  }
+  .table::before{
+    content:""; position:absolute; inset:9px; border-radius:50%;
+    border:1.5px dashed rgba(199,161,93,.65);
+  }
+  .table::after{
+    content:""; position:absolute; inset:-2px; border-radius:50%;
+    border:2px solid rgba(217,140,151,.55);
+    opacity:0; animation:ring 2.8s ease-out 2.2s infinite;
+  }
+  @keyframes tableIn{
+    to{ opacity:1; transform:scale(1) rotate(0deg); }
+  }
+  @keyframes ring{
+    0%{ opacity:.8; transform:scale(1); }
+    100%{ opacity:0; transform:scale(1.45); }
+  }
+
+  .t-lbl{
+    font-size:10px; letter-spacing:.28em; text-transform:uppercase;
+    font-weight:600; opacity:.85; margin-bottom:6px;
+  }
+  .t-num{
+    font-family:'Cormorant Garamond',serif;
+    font-size:66px; font-weight:700; line-height:.95;
+  }
+  .t-num{ opacity:0; }
+  .t-num.pop{ animation:numIn .7s cubic-bezier(.3,1.6,.5,1) 1.55s forwards; }
+  @keyframes numIn{
+    0%{ opacity:0; transform:scale(.4); }
+    100%{ opacity:1; transform:scale(1); }
+  }
+  @keyframes pop{
+    0%{ transform:scale(.6); }
+    60%{ transform:scale(1.25); }
+    100%{ transform:scale(1); }
+  }
+  .t-heart{ margin-top:8px; font-size:12px; color:var(--rose); }
+
+  /* sillas alrededor de la mesa */
+  .seat{
+    position:absolute; left:50%; top:50%; width:0; height:0;
+    transform:rotate(var(--a)) translateY(calc(var(--r) * -1));
+  }
+  .chair{
+    position:absolute;
+    left:calc(var(--cw) * -.5); top:calc(var(--ch) * -.5);
+    width:var(--cw); height:var(--ch);
+    border-radius:50% 50% 38% 38% / 62% 62% 38% 38%;
+    background:radial-gradient(circle at 50% 30%, #f6d3d8 0%, #e3a0aa 60%, #cf7f8c 100%);
+    border:2px solid #fff;
+    box-shadow:0 5px 10px rgba(120,70,80,.3), inset 0 -3px 5px rgba(150,70,85,.25);
+    opacity:0;
+    animation:chairIn .6s cubic-bezier(.3,1.6,.5,1) forwards;
+    animation-delay:var(--cd, 1.4s);
+  }
+  @keyframes chairIn{
+    from{ opacity:0; transform:translateY(16px) scale(.2); }
+    to{ opacity:1; transform:translateY(0) scale(1); }
+  }
+
+  .welcome{
+    margin:14px 0 0;
+    font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:600;
+    font-size:28px; color:#8f6a4e;
+    opacity:0; animation:rise .9s ease 2.3s forwards;
+  }
+
+  .nomesa{
+    margin:22px auto 0; max-width:280px;
+    padding:18px 18px; border-radius:16px;
+    border:1px dashed rgba(199,161,93,.65);
+    background:linear-gradient(180deg, rgba(255,252,246,.95), rgba(250,242,231,.9));
+    color:var(--ink-soft); line-height:1.7; font-size:14.5px;
+    opacity:0; animation:rise .8s ease .9s forwards;
+  }
+
+  .again{
+    margin-top:22px;
+    padding:13px 24px; border:1.5px solid rgba(199,161,93,.55);
+    border-radius:999px; background:rgba(255,255,255,.9);
+    color:var(--gold-deep); font-size:13px; letter-spacing:.06em;
+    text-transform:uppercase; cursor:pointer;
+    opacity:0; animation:rise .8s ease 2.6s forwards;
+  }
+
+  .error{
+    margin:0 auto 18px; max-width:310px; padding:12px 14px;
+    border-radius:14px; border:1px solid #e7c0c0;
+    background:#fff4f4; color:#a95555; font-size:12.5px; line-height:1.6;
+  }
+
+  @media (max-width:360px){
+    .logo{ width:150px; }
+    .stage{ transform:scale(.9); margin-top:-6px; margin-bottom:-14px; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .petal{ animation:none; display:none; }
+    .hello,.with,.your,.table,.chair,.welcome,.again,.nomesa{
+      animation-duration:.01s !important; animation-delay:0s !important;
+    }
+    .table::after,.spark{ display:none; }
+    .t-num{ opacity:1; }
+  }
+</style>
+</head>
+<body>
+
+<div class="petal-layer" aria-hidden="true">
+  <span class="petal"></span><span class="petal"></span><span class="petal"></span><span class="petal"></span>
+  <span class="petal"></span><span class="petal"></span><span class="petal"></span><span class="petal"></span>
+</div>
+
+<main class="page">
+  <div class="card">
+
+    <!-- ===== BÚSQUEDA ===== -->
+    <section id="search-view">
+      <img class="logo" id="couple" src="logo-mj.png" alt="Marolin &amp; Jaime" width="700" height="622" />
+      <p class="kicker">Encuentra tu mesa</p>
+      <p class="heart">♥</p>
+      <p class="lead">Escribe tu nombre y descubre dónde te esperamos esta noche.</p>
+
+      <div class="error hidden" id="error-box"></div>
+
+      <div class="field">
+        <label for="q">Nombre y apellido</label>
+        <input id="q" type="text" placeholder="Escribe tu nombre" autocomplete="off" autocapitalize="words" enterkeyhint="search" />
+        <div id="suggestions" class="suggestions hidden"></div>
+        <p class="hint" id="hint">Escribe tu nombre y verás las coincidencias.</p>
+      </div>
+    </section>
+
+    <!-- ===== RESULTADO ANIMADO ===== -->
+    <section id="result-view" class="hidden reveal-wrap" aria-live="polite">
+      <p class="hello" id="r-name"></p>
+      <p class="with hidden" id="r-with"></p>
+      <p class="your" id="r-your">Tu mesa es la</p>
+
+      <div class="stage" id="stage">
+        <div class="table">
+          <span class="t-lbl">Mesa</span>
+          <span class="t-num" id="t-num">0</span>
+          <span class="t-heart">♥</span>
+        </div>
+      </div>
+
+      <p class="welcome" id="r-welcome">Bienvenid@s</p>
+
+      <div class="nomesa hidden" id="r-nomesa">
+        Todavía no tienes una mesa asignada. Acércate a la recepción y con gusto te ayudamos.
+      </div>
+
+      <button type="button" class="again" id="again">Buscar otro invitado</button>
+    </section>
+
+  </div>
+</main>
+
+<script>
+/* ===== CONFIGURACIÓN: mismo config.js de la invitación ===== */
+const RAW = window.WEDDING_CONFIG || {};
+const CFG = {
+  couple: RAW.coupleNames || "Marolin & Jaime",
+  /* Conexión directa a tu Supabase (llave pública). Si config.js trae otra, se usa esa. */
+  url: (RAW.supabase && RAW.supabase.url) || "https://bggpkeuasjxmtghjdnca.supabase.co",
+  key: (RAW.supabase && RAW.supabase.anonKey) || "sb_publishable_-qhXfgT2jCP6s3WTAejcLA_0v3mOh2a",
+  table: (RAW.tables && RAW.tables.invitados) || "invitados"
+};
+
+const sb = (window.supabase && /^https:\/\//.test(CFG.url) && CFG.key)
+  ? window.supabase.createClient(CFG.url, CFG.key) : null;
+
+
+const $ = (id) => document.getElementById(id);
+const q = $("q"), box = $("suggestions"), hint = $("hint");
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+if (!sb){
+  const e = $("error-box");
+  e.textContent = "No pudimos conectar con la lista de invitados. Acércate a la recepción y te ayudamos.";
+  e.classList.remove("hidden");
+}
+
+function norm(s){
+  return (s || "").toLowerCase().normalize("NFD")
+    .replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9 ]/g, " ")
+    .replace(/\s+/g, " ").trim();
+}
+
+/* ===== búsqueda ===== */
+let timer = null, seq = 0;
+
+q.addEventListener("input", () => {
+  clearTimeout(timer);
+  const clean = norm(q.value);
+  if (clean.replace(/ /g, "").length < 3){
+    box.classList.add("hidden");
+    hint.textContent = "Escribe tu nombre y verás las coincidencias.";
+    return;
+  }
+  timer = setTimeout(() => search(clean), 200);
+});
+
+const PARTICLES = new Set(["de","del","la","las","los","y","e"]);
+
+function words(name){
+  return norm(name).split(" ").filter(w => w && !PARTICLES.has(w));
+}
+
+/* Cada palabra escrita debe ser el inicio de alguna palabra del nombre */
+function matches(typedWords, stored){
+  const w = words(stored);
+  return typedWords.every(t => w.some(x => x.startsWith(t)));
+}
+
+async function search(clean){
+  if (!sb) return;
+  const mine = ++seq;
+  const typed = clean.split(" ").filter(t => t && !PARTICLES.has(t));
+  if (!typed.length) return;
+
+  const cond = [];
+  typed.forEach(t => {
+    cond.push(`nombre_normalizado.ilike.%${t}%`);
+    cond.push(`acompanante_normalizado.ilike.%${t}%`);
+  });
+
+  const { data, error } = await sb
+    .from(CFG.table)
+    .select("id, nombre_completo, acompanante_nombre, mesa")
+    .or(cond.join(","))
+    .limit(60);
+
+  if (mine !== seq) return;
+
+  if (error){
+    console.error(error);
+    showSuggestions([], true);
+    return;
+  }
+
+  const items = [];
+  (data || []).forEach(i => {
+    if (matches(typed, i.nombre_completo)){
+      items.push({ ...i, _who: i.nombre_completo, _other: (i.acompanante_nombre || "").trim() });
+    }
+    if ((i.acompanante_nombre || "").trim() && matches(typed, i.acompanante_nombre)){
+      items.push({ ...i, _who: i.acompanante_nombre.trim(), _other: i.nombre_completo });
+    }
+  });
+
+  if (!items.length){
+    box.classList.add("hidden");
+    hint.textContent = "No encontramos ese nombre. Revisa cómo lo escribiste o pregunta en la recepción.";
+    return;
+  }
+
+  hint.textContent = "Toca tu nombre para ver tu mesa.";
+  showSuggestions(items.slice(0, 6), false);
+}
+
+function showSuggestions(items, err){
+  box.innerHTML = "";
+
+  if (!items.length){
+    const d = document.createElement("div");
+    d.className = "no-results";
+    d.textContent = err
+      ? "No pudimos consultar la lista. Revisa tu conexión e inténtalo de nuevo."
+      : "No encontramos ese nombre. Prueba con tu nombre y apellido, o pregunta en la recepción.";
+    box.appendChild(d);
+    box.classList.remove("hidden");
+    return;
+  }
+
+  items.forEach(item => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "suggestion";
+    b.textContent = item._who;
+    b.addEventListener("click", () => reveal(item));
+    box.appendChild(b);
+  });
+
+  box.classList.remove("hidden");
+}
+
+/* ===== resultado animado ===== */
+function sparks(){
+  const stage = $("stage");
+  stage.querySelectorAll(".spark").forEach(n => n.remove());
+  if (reduceMotion) return;
+  for (let i = 0; i < 18; i++){
+    const s = document.createElement("span");
+    const ang = (Math.PI * 2 / 18) * i + Math.random() * .3;
+    const dist = 95 + Math.random() * 45;
+    s.className = "spark";
+    s.style.setProperty("--x", Math.cos(ang) * dist + "px");
+    s.style.setProperty("--y", Math.sin(ang) * dist + "px");
+    s.style.setProperty("--sd", (1.5 + Math.random() * .5) + "s");
+    stage.appendChild(s);
+  }
+}
+
+function buildChairs(n){
+  const stage = $("stage");
+  stage.querySelectorAll(".seat").forEach(n => n.remove());
+  n = Math.max(1, Math.min(n, 24));
+  const cw = n > 16 ? 20 : n > 12 ? 26 : 32;
+  const ch = n > 16 ? 18 : n > 12 ? 22 : 26;
+  stage.style.setProperty("--cw", cw + "px");
+  stage.style.setProperty("--ch", ch + "px");
+
+  for (let i = 0; i < n; i++){
+    const seat = document.createElement("div");
+    seat.className = "seat";
+    seat.style.setProperty("--a", (360 / n) * i + "deg");
+    seat.style.setProperty("--r", "104px");
+    const c = document.createElement("span");
+    c.className = "chair";
+    c.style.setProperty("--cd", (1.35 + i * 0.07) + "s");
+    seat.appendChild(c);
+    stage.appendChild(seat);
+  }
+}
+
+/* El número aparece ya con el valor final (sin contar), con un pequeño rebote */
+function showNumber(target){
+  const el = $("t-num");
+  el.classList.remove("pop");
+  el.textContent = target;
+  void el.offsetWidth;
+  if (!reduceMotion) el.classList.add("pop");
+}
+
+async function seatsAtTable(mesa, fallback){
+  try {
+    const { data, error } = await sb
+      .from(CFG.table).select("id, acompanante_nombre").eq("mesa", mesa).limit(60);
+    if (error || !data) return fallback;
+    return data.reduce((acc, r) => acc + 1 + ((r.acompanante_nombre || "").trim() ? 1 : 0), 0) || fallback;
+  } catch (e){ return fallback; }
+}
+
+async function reveal(item){
+  box.classList.add("hidden");
+  q.blur();
+
+  const acomp = (item._other || "").trim();
+  const mesa = Number(item.mesa);
+  const tieneMesa = Number.isFinite(mesa) && mesa > 0;
+
+  $("search-view").classList.add("hidden");
+  const view = $("result-view");
+
+  /* reinicia las animaciones CSS */
+  view.classList.add("hidden");
+  void view.offsetWidth;
+  view.classList.remove("hidden");
+
+  $("r-name").textContent = item._who || item.nombre_completo;
+
+  const w = $("r-with");
+  if (acomp){ w.textContent = "& " + acomp; w.classList.remove("hidden"); }
+  else { w.classList.add("hidden"); }
+
+  const stage = $("stage");
+  stage.classList.toggle("hidden", !tieneMesa);
+  $("r-your").classList.toggle("hidden", !tieneMesa);
+  $("r-welcome").classList.toggle("hidden", !tieneMesa);
+  $("r-nomesa").classList.toggle("hidden", tieneMesa);
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+
+  if (tieneMesa){
+    const party = (item.acompanante_nombre || "").trim() ? 2 : 1;
+    const total = await seatsAtTable(mesa, party);
+    buildChairs(total);
+    sparks();
+    showNumber(mesa);
+  }
+}
+
+$("again").addEventListener("click", () => {
+  $("result-view").classList.add("hidden");
+  $("search-view").classList.remove("hidden");
+  q.value = "";
+  box.classList.add("hidden");
+  q.focus();
+});
+
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".field")) box.classList.add("hidden");
+});
+</script>
+</body>
+</html>
